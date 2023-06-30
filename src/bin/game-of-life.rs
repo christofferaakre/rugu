@@ -1,4 +1,4 @@
-use log::info;
+use log::{info, debug};
 use wgpu::RequestAdapterOptions;
 use winit::{event_loop::{self, EventLoop, ControlFlow}, event::{Event::WindowEvent, KeyboardInput, VirtualKeyCode, ElementState}, dpi::LogicalSize};
 
@@ -26,8 +26,15 @@ async fn run() {
         power_preference: wgpu::PowerPreference::HighPerformance,
         force_fallback_adapter: false,
         compatible_surface: Some(&surface),
-    }).await;
+    }).await.expect("Failed to request adapter");
 
+    let (device, queue) = adapter.request_device(&wgpu::DeviceDescriptor { 
+        label: Some("Device"), limits: Default::default(),
+        features: Default::default()
+    }, None).await.expect("Failed to request device");
+
+    let adapter_info = adapter.get_info();
+    debug!("Using adapter: {:?}", adapter_info);
 
     event_loop.run(move |event, _, control_flow| {
         match event {
