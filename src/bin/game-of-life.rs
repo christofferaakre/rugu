@@ -2,7 +2,8 @@ use std::time::Instant;
 
 use log::{debug, info};
 use wgpu::{
-    include_wgsl, Adapter, Device, FrontFace, PrimitiveState, Queue, RequestAdapterOptions, Surface, TextureViewDimension, ColorTargetState,
+    include_wgsl, Adapter, ColorTargetState, Device, FrontFace, PipelineLayout, PrimitiveState,
+    Queue, RenderPipeline, RequestAdapterOptions, ShaderModule, Surface, TextureViewDimension,
 };
 use winit::{
     dpi::LogicalSize,
@@ -18,6 +19,9 @@ pub struct State {
     pub adapter: Adapter,
     pub device: Device,
     pub queue: Queue,
+    pub shader_module: ShaderModule,
+    pub pipeline_layout: PipelineLayout,
+    pub render_pipeline: RenderPipeline,
 }
 
 impl State {
@@ -27,51 +31,18 @@ impl State {
         let fps = 1.0 / dt.as_secs_f32();
         debug!("{fps:02} fps");
 
-        let pipeline_layout = self
-            .device
-            .create_pipeline_layout(&wgpu::PipelineLayoutDescriptor {
-                label: Some("Render pipeline layout"),
-                bind_group_layouts: &[],
-                push_constant_ranges: &[],
-            });
-
-        let shader_module = self
-            .device
-            .create_shader_module(include_wgsl!("../../shaders/shader.wgsl"));
-
         let surface_texture = match self.surface.get_current_texture() {
             Ok(surface_texture) => surface_texture,
-            Err(wgpu::SurfaceError::Timeout) => { return;},
-            Err(wgpu::SurfaceError::OutOfMemory) => { panic!("Out of memory!") },
-            Err(err) => todo!("Need to handle lost and outdated surface errors; recreate surface")
+            Err(wgpu::SurfaceError::Timeout) => {
+                return;
+            }
+            Err(wgpu::SurfaceError::OutOfMemory) => {
+                panic!("Out of memory!")
+            }
+            Err(err) => todo!("Need to handle lost and outdated surface errors; recreate surface"),
         };
 
         let current_texture = &surface_texture.texture;
-
-        let render_pipeline = self
-            .device
-            .create_render_pipeline(&wgpu::RenderPipelineDescriptor {
-                label: Some("Render pipeline"),
-                layout: Some(&pipeline_layout),
-                vertex: wgpu::VertexState {
-                    module: &shader_module,
-                    entry_point: "vs_main",
-                    buffers: &[],
-                },
-                primitive: PrimitiveState::default(),
-                depth_stencil: None,
-                multisample: Default::default(),
-                fragment: Some(wgpu::FragmentState {
-                    module: &shader_module,
-                    entry_point: "fs_main",
-                    targets: &[Some(ColorTargetState {
-                        format: current_texture.format(),
-                        blend: None,
-                        write_mask: wgpu::ColorWrites::ALL,
-                    })]
-                }),
-                multiview: None,
-            });
 
         let view = current_texture.create_view(&wgpu::TextureViewDescriptor {
             label: Some("Output texture view"),
@@ -84,25 +55,32 @@ impl State {
             array_layer_count: None,
         });
 
-        let mut command_encoder = self.device.create_command_encoder(&wgpu::CommandEncoderDescriptor { label: Some("Render command encoder") });
+        let mut command_encoder =
+            self.device
+                .create_command_encoder(&wgpu::CommandEncoderDescriptor {
+                    label: Some("Render command encoder"),
+                });
         {
-        let mut render_pass = command_encoder.begin_render_pass(&wgpu::RenderPassDescriptor {
-            label: Some("Render pass"),
-            color_attachments: &[Some(wgpu::RenderPassColorAttachment { view: &view, resolve_target: None, ops:  wgpu::Operations {
-                load: wgpu::LoadOp::Clear(wgpu::Color {
-                    r: 1.0,
-                    g: 0.0,
-                    b: 0.0,
-                    a: 1.0,
-                }),
-                store: true,
-            }})],
-            depth_stencil_attachment: None,
-        });
+            let mut render_pass = command_encoder.begin_render_pass(&wgpu::RenderPassDescriptor {
+                label: Some("Render pass"),
+                color_attachments: &[Some(wgpu::RenderPassColorAttachment {
+                    view: &view,
+                    resolve_target: None,
+                    ops: wgpu::Operations {
+                        load: wgpu::LoadOp::Clear(wgpu::Color {
+                            r: 1.0,
+                            g: 0.0,
+                            b: 0.0,
+                            a: 1.0,
+                        }),
+                        store: true,
+                    },
+                })],
+                depth_stencil_attachment: None,
+            });
 
-        render_pass.set_pipeline(&render_pipeline);
-        render_pass.draw(0..1, 0..1);
-
+            render_pass.set_pipeline(&self.render_pipeline);
+            render_pass.draw(0..1, 0..1);
         }
 
         self.queue.submit(std::iter::once(command_encoder.finish()));
@@ -152,14 +130,57 @@ async fn init() -> (State, EventLoop<()>) {
 
     let surface_caps = surface.get_capabilities(&adapter);
 
-    surface.configure(&device, &wgpu::SurfaceConfiguration { 
-        usage: wgpu::TextureUsages::RENDER_ATTACHMENT | wgpu::TextureUsages::COPY_DST, 
-        format: *surface_caps.formats.get(0).expect("Surface had no supported texture formats"),
-        width: window.inner_size().width, 
-        height: window.inner_size().height, 
-        present_mode: *surface_caps.present_modes.get(0).unwrap_or(&wgpu::PresentMode::Fifo), 
-        alpha_mode: *surface_caps.alpha_modes.get(0).unwrap_or(&wgpu::CompositeAlphaMode::default()), 
-        view_formats: vec![]
+    surface.configure(
+        &device,
+        &wgpu::SurfaceConfiguration {
+            usage: wgpu::TextureUsages::RENDER_ATTACHMENT | wgpu::TextureUsages::COPY_DST,
+            format: *surface_caps
+                .formats
+                .get(0)
+                .expect("Surface had no supported texture formats"),
+            width: window.inner_size().width,
+            height: window.inner_size().height,
+            present_mode: *surface_caps
+                .present_modes
+                .get(0)
+                .unwrap_or(&wgpu::PresentMode::Fifo),
+            alpha_mode: *surface_caps
+                .alpha_modes
+                .get(0)
+                .unwrap_or(&wgpu::CompositeAlphaMode::default()),
+            view_formats: vec![],
+        },
+    );
+
+    let shader_module = device.create_shader_module(include_wgsl!("../../shaders/shader.wgsl"));
+
+    let pipeline_layout = device.create_pipeline_layout(&wgpu::PipelineLayoutDescriptor {
+        label: Some("Render pipeline layout"),
+        bind_group_layouts: &[],
+        push_constant_ranges: &[],
+    });
+
+    let render_pipeline = device.create_render_pipeline(&wgpu::RenderPipelineDescriptor {
+        label: Some("Render pipeline"),
+        layout: Some(&pipeline_layout),
+        vertex: wgpu::VertexState {
+            module: &shader_module,
+            entry_point: "vs_main",
+            buffers: &[],
+        },
+        primitive: PrimitiveState::default(),
+        depth_stencil: None,
+        multisample: Default::default(),
+        fragment: Some(wgpu::FragmentState {
+            module: &shader_module,
+            entry_point: "fs_main",
+            targets: &[Some(ColorTargetState {
+                format: surface.get_current_texture().unwrap().texture.format(),
+                blend: None,
+                write_mask: wgpu::ColorWrites::ALL,
+            })],
+        }),
+        multiview: None,
     });
 
     let state = State {
@@ -169,6 +190,9 @@ async fn init() -> (State, EventLoop<()>) {
         adapter,
         device,
         queue,
+        shader_module,
+        pipeline_layout,
+        render_pipeline,
     };
 
     (state, event_loop)
