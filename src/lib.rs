@@ -58,14 +58,24 @@ struct Instance {
 impl From<Instance> for InstanceRaw {
     fn from(instance: Instance) -> Self {
         Self {
-            position: cgmath::Matrix4::from_translation(Vector3::new(instance.position.x, instance.position.y, 0.0)).into(),
+            position: cgmath::Matrix4::from_translation(Vector3::new(
+                instance.position.x,
+                instance.position.y,
+                0.0,
+            ))
+            .into(),
         }
     }
 }
 
-const INSTANCE_DATA: [Instance; 1] = [Instance {
-    position: Vector2::new(-0.5, -0.5),
-}];
+const INSTANCE_DATA: [Instance; 2] = [
+    Instance {
+        position: Vector2::new(-0.5, -0.5),
+    },
+    Instance {
+        position: Vector2::new(0.5, 0.6),
+    },
+];
 
 impl State {
     pub fn draw(&mut self) {
@@ -130,7 +140,10 @@ impl State {
             render_pass.set_vertex_buffer(0, self.vertex_buffer.slice(..));
             render_pass.set_vertex_buffer(1, self.instance_buffer.slice(..));
             render_pass.set_bind_group(0, &self.model_bind_group, &[]);
-            render_pass.draw(0..TRIANGLE_VERTICES.len() as u32, 0..1);
+            render_pass.draw(
+                0..TRIANGLE_VERTICES.len() as u32,
+                0..INSTANCE_DATA.len() as u32,
+            );
         }
 
         self.queue.submit(std::iter::once(command_encoder.finish()));
