@@ -14,7 +14,7 @@ use winit::{
 };
 
 pub struct State {
-    window: Window,
+    pub window: Window,
     counter: Instant,
     surface: Surface,
     adapter: Adapter,
@@ -107,7 +107,7 @@ impl State {
         self.queue.submit(std::iter::once(command_encoder.finish()));
         surface_texture.present();
     }
-    async fn new() -> (Self, EventLoop<()>) {
+    pub async fn new() -> (Self, EventLoop<()>) {
         let instance = wgpu::Instance::new(wgpu::InstanceDescriptor {
             backends: wgpu::Backends::all(),
             dx12_shader_compiler: Default::default(),
