@@ -3,7 +3,7 @@
 
 use std::time::Instant;
 
-use cgmath::SquareMatrix;
+use cgmath::{SquareMatrix, Vector3, Vector2};
 use log::debug;
 use wgpu::{
     include_wgsl, util::DeviceExt, Adapter, ColorTargetState, Device, PipelineLayout,
@@ -42,6 +42,25 @@ pub const TRIANGLE_VERTICES: [Vertex; 3] = [
     Vertex {
         position: [0.5, -0.5, 0.0],
     },
+];
+
+struct InstanceRaw {
+    position: [f32; 2],
+}
+
+struct Instance {
+    position: Vector2<f32>,
+}
+
+impl From<Instance> for InstanceRaw {
+    fn from(instance: Instance) -> Self {
+        Self { position: instance.position.into()  }
+    }
+}
+
+
+const INSTANCE_DATA: [Instance; 1] = [
+    Instance { position: Vector2::new(-0.5, -0.5) }
 ];
 
 impl State {
