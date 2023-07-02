@@ -6,6 +6,9 @@ struct VertexOutput {
     @builtin(position) position: vec4<f32>,
 }
 
+@group(0) @binding(0)
+var<uniform> model: mat4x4<f32>;
+
 @vertex
 fn vs_main(vertex: VertexInput) -> VertexOutput {
     var out: VertexOutput;
