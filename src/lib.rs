@@ -1,3 +1,6 @@
+#![allow(clippy::collapsible_match)]
+#![allow(clippy::single_match)]
+
 use std::time::Instant;
 
 use log::{debug, info};
