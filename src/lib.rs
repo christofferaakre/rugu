@@ -3,17 +3,13 @@
 
 use std::time::Instant;
 
-use log::{debug};
+use log::debug;
 use wgpu::{
     include_wgsl, util::DeviceExt, Adapter, ColorTargetState, Device, PipelineLayout,
     PrimitiveState, Queue, RenderPipeline, RequestAdapterOptions, ShaderModule, Surface,
     TextureViewDimension, VertexBufferLayout,
 };
-use winit::{
-    dpi::LogicalSize,
-    event_loop::{EventLoop},
-    window::Window,
-};
+use winit::{dpi::LogicalSize, event_loop::EventLoop, window::Window};
 
 pub struct State {
     pub window: Window,
@@ -185,7 +181,7 @@ impl State {
                     format: wgpu::VertexFormat::Float32x3,
                     offset: 0,
                     shader_location: 0,
-                }
+                },
             ],
         };
 

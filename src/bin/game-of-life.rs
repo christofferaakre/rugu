@@ -1,16 +1,13 @@
 #![allow(clippy::single_match)]
 #![allow(clippy::collapsible_match)]
 
-
-
-use log::{info};
+use log::info;
 use rugu::State;
 
 use winit::{
     event::{ElementState, Event::WindowEvent, KeyboardInput, VirtualKeyCode},
-    event_loop::{ControlFlow},
+    event_loop::ControlFlow,
 };
-
 
 async fn run() {
     println!("hello world");
