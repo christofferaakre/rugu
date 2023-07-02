@@ -3,6 +3,7 @@
 
 use std::time::Instant;
 
+use cgmath::SquareMatrix;
 use log::debug;
 use wgpu::{
     include_wgsl, util::DeviceExt, Adapter, ColorTargetState, Device, PipelineLayout,
@@ -22,6 +23,7 @@ pub struct State {
     _pipeline_layout: PipelineLayout,
     render_pipeline: RenderPipeline,
     vertex_buffer: wgpu::Buffer,
+    model_bind_group: wgpu::BindGroup,
 }
 
 #[derive(Clone, Copy, bytemuck::Pod, bytemuck::Zeroable)]
@@ -99,6 +101,7 @@ impl State {
 
             render_pass.set_pipeline(&self.render_pipeline);
             render_pass.set_vertex_buffer(0, self.vertex_buffer.slice(..));
+            render_pass.set_bind_group(0, &self.model_bind_group, &[]);
             render_pass.draw(0..TRIANGLE_VERTICES.len() as u32, 0..1);
         }
 
@@ -191,9 +194,42 @@ impl State {
             usage: wgpu::BufferUsages::VERTEX,
         });
 
+        // let identity_matrix = cgmath::Matrix4::<f32>::identity();
+        let model_matrix = cgmath::Matrix4::from_translation(cgmath::Vector3::new(-0.5, 0.0, 0.0));
+        let model: [[f32; 4]; 4] = model_matrix.into();
+
+        let model_uniform_buffer = device.create_buffer_init(&wgpu::util::BufferInitDescriptor {
+            label: Some("Vertex buffer"),
+            contents: bytemuck::cast_slice(&model),
+            usage: wgpu::BufferUsages::UNIFORM,
+        });
+
+        let model_bind_group_layout = device.create_bind_group_layout(&wgpu::BindGroupLayoutDescriptor {
+            label: Some("Model matrix bind group layout"),
+            entries: &[
+                wgpu::BindGroupLayoutEntry {
+                    binding: 0,
+                    visibility: wgpu::ShaderStages::VERTEX,
+                    ty: wgpu::BindingType::Buffer { ty: wgpu::BufferBindingType::Uniform, has_dynamic_offset: false, min_binding_size: None },
+                    count: None,
+                }
+            ]
+        });
+
+        let model_bind_group = device.create_bind_group(&wgpu::BindGroupDescriptor {
+            label: Some("Model matrix bind group"),
+            layout: &model_bind_group_layout,
+            entries: &[
+                wgpu::BindGroupEntry {
+                    binding: 0,
+                    resource: model_uniform_buffer.as_entire_binding(),
+                }
+            ],
+        });
+
         let pipeline_layout = device.create_pipeline_layout(&wgpu::PipelineLayoutDescriptor {
             label: Some("Render pipeline layout"),
-            bind_group_layouts: &[],
+            bind_group_layouts: &[&model_bind_group_layout],
             push_constant_ranges: &[],
         });
 
@@ -231,6 +267,7 @@ impl State {
             _pipeline_layout: pipeline_layout,
             render_pipeline,
             vertex_buffer,
+            model_bind_group,
         };
 
         (state, event_loop)
