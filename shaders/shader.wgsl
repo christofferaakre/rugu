@@ -13,7 +13,7 @@ var<uniform> model: mat4x4<f32>;
 fn vs_main(vertex: VertexInput) -> VertexOutput {
     var out: VertexOutput;
 
-    out.position = vec4<f32>(vertex.position.xyz, 1.0);
+    out.position = model * vec4<f32>(vertex.position.xyz, 1.0);
 
     return out;
 }
