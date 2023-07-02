@@ -45,6 +45,21 @@ pub const TRIANGLE_VERTICES: [Vertex; 3] = [
     },
 ];
 
+pub const SQUARE_VERTICES: [Vertex; 4] = [
+    Vertex {
+        position: [-0.5, -0.5, 0.0],
+    },
+    Vertex {
+        position: [-0.5, 0.5, 0.0],
+    },
+    Vertex {
+        position: [0.5, -0.5, 0.0],
+    },
+    Vertex {
+        position: [0.5, 0.5, 0.0],
+    },
+];
+
 #[repr(C)]
 #[derive(Copy, Clone, bytemuck::Zeroable, bytemuck::Pod)]
 struct InstanceRaw {
@@ -68,14 +83,18 @@ impl From<Instance> for InstanceRaw {
     }
 }
 
-const INSTANCE_DATA: [Instance; 2] = [
-    Instance {
-        position: Vector2::new(-0.5, -0.5),
-    },
-    Instance {
-        position: Vector2::new(0.5, 0.6),
-    },
-];
+// const INSTANCE_DATA: [Instance; 2] = [
+//     Instance {
+//         position: Vector2::new(-0.5, -0.5),
+//     },
+//     Instance {
+//         position: Vector2::new(0.5, 0.6),
+//     },
+// ];
+
+const INSTANCE_DATA: [Instance; 1] = [Instance {
+    position: Vector2::new(0.0, 0.0),
+}];
 
 impl State {
     pub fn draw(&mut self) {
@@ -141,7 +160,7 @@ impl State {
             render_pass.set_vertex_buffer(1, self.instance_buffer.slice(..));
             render_pass.set_bind_group(0, &self.model_bind_group, &[]);
             render_pass.draw(
-                0..TRIANGLE_VERTICES.len() as u32,
+                0..SQUARE_VERTICES.len() as u32,
                 0..INSTANCE_DATA.len() as u32,
             );
         }
@@ -231,7 +250,7 @@ impl State {
 
         let vertex_buffer = device.create_buffer_init(&wgpu::util::BufferInitDescriptor {
             label: Some("Vertex buffer"),
-            contents: bytemuck::cast_slice(&TRIANGLE_VERTICES),
+            contents: bytemuck::cast_slice(&SQUARE_VERTICES),
             usage: wgpu::BufferUsages::VERTEX,
         });
 
@@ -318,7 +337,10 @@ impl State {
                 entry_point: "vs_main",
                 buffers: &[vertex_buffer_layout, instance_buffer_layout],
             },
-            primitive: PrimitiveState::default(),
+            primitive: PrimitiveState { 
+                topology: wgpu::PrimitiveTopology::TriangleStrip,
+                ..Default::default()
+            },
             depth_stencil: None,
             multisample: Default::default(),
             fragment: Some(wgpu::FragmentState {
