@@ -18,10 +18,18 @@ struct VertexOutput {
 var<uniform> model: mat4x4<f32>;
 
 @vertex
-fn vs_main(vertex: VertexInput, instance_input: InstanceInput) -> VertexOutput {
+fn vs_main(vertex: VertexInput, instance: InstanceInput) -> VertexOutput {
     var out: VertexOutput;
 
-    out.position = vec4<f32>(vertex.position.xyz, 1.0);
+    //let model = mat4x4<f32>(instance.model_mat0, instance.model_mat1, instance.model_mat2, instance.model_mat3);
+    let model = mat4x4<f32>(
+    instance.model_mat0,
+    instance.model_mat1,
+    instance.model_mat2,
+    instance.model_mat3,
+    );
+
+    out.position = model * vec4<f32>(vertex.position.xyz, 1.0);
 
     return out;
 }

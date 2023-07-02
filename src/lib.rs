@@ -3,8 +3,8 @@
 
 use std::time::Instant;
 
-use cgmath::{SquareMatrix, Vector3, Vector2};
-use log::debug;
+use cgmath::{SquareMatrix, Vector2, Vector3};
+use log::{debug, warn};
 use wgpu::{
     include_wgsl, util::DeviceExt, Adapter, ColorTargetState, Device, PipelineLayout,
     PrimitiveState, Queue, RenderPipeline, RequestAdapterOptions, ShaderModule, Surface,
@@ -24,6 +24,7 @@ pub struct State {
     render_pipeline: RenderPipeline,
     vertex_buffer: wgpu::Buffer,
     model_bind_group: wgpu::BindGroup,
+    instance_buffer: wgpu::Buffer,
 }
 
 #[derive(Clone, Copy, bytemuck::Pod, bytemuck::Zeroable)]
@@ -44,8 +45,10 @@ pub const TRIANGLE_VERTICES: [Vertex; 3] = [
     },
 ];
 
+#[repr(C)]
+#[derive(Copy, Clone, bytemuck::Zeroable, bytemuck::Pod)]
 struct InstanceRaw {
-    position: [f32; 2],
+    position: [[f32; 4]; 4],
 }
 
 struct Instance {
@@ -54,14 +57,15 @@ struct Instance {
 
 impl From<Instance> for InstanceRaw {
     fn from(instance: Instance) -> Self {
-        Self { position: instance.position.into()  }
+        Self {
+            position: cgmath::Matrix4::from_translation(Vector3::new(instance.position.x, instance.position.y, 0.0)).into(),
+        }
     }
 }
 
-
-const INSTANCE_DATA: [Instance; 1] = [
-    Instance { position: Vector2::new(-0.5, -0.5) }
-];
+const INSTANCE_DATA: [Instance; 1] = [Instance {
+    position: Vector2::new(-0.5, -0.5),
+}];
 
 impl State {
     pub fn draw(&mut self) {
@@ -78,7 +82,11 @@ impl State {
             Err(wgpu::SurfaceError::OutOfMemory) => {
                 panic!("Out of memory!")
             }
-            Err(_err) => todo!("Need to handle lost and outdated surface errors; recreate surface"),
+            // Err(_err) => todo!("Need to handle lost and outdated surface errors; recreate surface"),
+            Err(err) => {
+                warn!("Error: {:?}", err);
+                return;
+            }
         };
 
         let current_texture = &surface_texture.texture;
@@ -120,6 +128,7 @@ impl State {
 
             render_pass.set_pipeline(&self.render_pipeline);
             render_pass.set_vertex_buffer(0, self.vertex_buffer.slice(..));
+            render_pass.set_vertex_buffer(1, self.instance_buffer.slice(..));
             render_pass.set_bind_group(0, &self.model_bind_group, &[]);
             render_pass.draw(0..TRIANGLE_VERTICES.len() as u32, 0..1);
         }
@@ -213,6 +222,41 @@ impl State {
             usage: wgpu::BufferUsages::VERTEX,
         });
 
+        let instance_data = INSTANCE_DATA.map(InstanceRaw::from);
+
+        let instance_buffer_layout = VertexBufferLayout {
+            array_stride: std::mem::size_of::<InstanceRaw>() as wgpu::BufferAddress,
+            step_mode: wgpu::VertexStepMode::Instance,
+            attributes: &[
+                wgpu::VertexAttribute {
+                    format: wgpu::VertexFormat::Float32x4,
+                    offset: 0,
+                    shader_location: 1,
+                },
+                wgpu::VertexAttribute {
+                    format: wgpu::VertexFormat::Float32x4,
+                    offset: std::mem::size_of::<[f32; 4]>() as wgpu::BufferAddress,
+                    shader_location: 2,
+                },
+                wgpu::VertexAttribute {
+                    format: wgpu::VertexFormat::Float32x4,
+                    offset: 2 * std::mem::size_of::<[f32; 4]>() as wgpu::BufferAddress,
+                    shader_location: 3,
+                },
+                wgpu::VertexAttribute {
+                    format: wgpu::VertexFormat::Float32x4,
+                    offset: 3 * std::mem::size_of::<[f32; 4]>() as wgpu::BufferAddress,
+                    shader_location: 4,
+                },
+            ],
+        };
+
+        let instance_buffer = device.create_buffer_init(&wgpu::util::BufferInitDescriptor {
+            label: Some("Instance buffer"),
+            contents: bytemuck::cast_slice(&instance_data),
+            usage: wgpu::BufferUsages::VERTEX,
+        });
+
         // let identity_matrix = cgmath::Matrix4::<f32>::identity();
         let model_matrix = cgmath::Matrix4::from_translation(cgmath::Vector3::new(-0.5, 0.0, 0.0));
         let model: [[f32; 4]; 4] = model_matrix.into();
@@ -223,27 +267,28 @@ impl State {
             usage: wgpu::BufferUsages::UNIFORM,
         });
 
-        let model_bind_group_layout = device.create_bind_group_layout(&wgpu::BindGroupLayoutDescriptor {
-            label: Some("Model matrix bind group layout"),
-            entries: &[
-                wgpu::BindGroupLayoutEntry {
+        let model_bind_group_layout =
+            device.create_bind_group_layout(&wgpu::BindGroupLayoutDescriptor {
+                label: Some("Model matrix bind group layout"),
+                entries: &[wgpu::BindGroupLayoutEntry {
                     binding: 0,
                     visibility: wgpu::ShaderStages::VERTEX,
-                    ty: wgpu::BindingType::Buffer { ty: wgpu::BufferBindingType::Uniform, has_dynamic_offset: false, min_binding_size: None },
+                    ty: wgpu::BindingType::Buffer {
+                        ty: wgpu::BufferBindingType::Uniform,
+                        has_dynamic_offset: false,
+                        min_binding_size: None,
+                    },
                     count: None,
-                }
-            ]
-        });
+                }],
+            });
 
         let model_bind_group = device.create_bind_group(&wgpu::BindGroupDescriptor {
             label: Some("Model matrix bind group"),
             layout: &model_bind_group_layout,
-            entries: &[
-                wgpu::BindGroupEntry {
-                    binding: 0,
-                    resource: model_uniform_buffer.as_entire_binding(),
-                }
-            ],
+            entries: &[wgpu::BindGroupEntry {
+                binding: 0,
+                resource: model_uniform_buffer.as_entire_binding(),
+            }],
         });
 
         let pipeline_layout = device.create_pipeline_layout(&wgpu::PipelineLayoutDescriptor {
@@ -258,7 +303,7 @@ impl State {
             vertex: wgpu::VertexState {
                 module: &shader_module,
                 entry_point: "vs_main",
-                buffers: &[vertex_buffer_layout],
+                buffers: &[vertex_buffer_layout, instance_buffer_layout],
             },
             primitive: PrimitiveState::default(),
             depth_stencil: None,
@@ -287,6 +332,7 @@ impl State {
             render_pipeline,
             vertex_buffer,
             model_bind_group,
+            instance_buffer,
         };
 
         (state, event_loop)
