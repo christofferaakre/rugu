@@ -3,16 +3,15 @@
 
 use std::time::Instant;
 
-use log::{debug, info};
+use log::{debug};
 use wgpu::{
-    include_wgsl, util::DeviceExt, Adapter, ColorTargetState, Device, FrontFace, PipelineLayout,
+    include_wgsl, util::DeviceExt, Adapter, ColorTargetState, Device, PipelineLayout,
     PrimitiveState, Queue, RenderPipeline, RequestAdapterOptions, ShaderModule, Surface,
     TextureViewDimension, VertexBufferLayout,
 };
 use winit::{
     dpi::LogicalSize,
-    event::{ElementState, Event::WindowEvent, KeyboardInput, VirtualKeyCode},
-    event_loop::{self, ControlFlow, EventLoop},
+    event_loop::{EventLoop},
     window::Window,
 };
 
@@ -20,11 +19,11 @@ pub struct State {
     pub window: Window,
     counter: Instant,
     surface: Surface,
-    adapter: Adapter,
+    _adapter: Adapter,
     device: Device,
     queue: Queue,
-    shader_module: ShaderModule,
-    pipeline_layout: PipelineLayout,
+    _shader_module: ShaderModule,
+    _pipeline_layout: PipelineLayout,
     render_pipeline: RenderPipeline,
     vertex_buffer: wgpu::Buffer,
 }
@@ -62,7 +61,7 @@ impl State {
             Err(wgpu::SurfaceError::OutOfMemory) => {
                 panic!("Out of memory!")
             }
-            Err(err) => todo!("Need to handle lost and outdated surface errors; recreate surface"),
+            Err(_err) => todo!("Need to handle lost and outdated surface errors; recreate surface"),
         };
 
         let current_texture = &surface_texture.texture;
@@ -229,11 +228,11 @@ impl State {
             counter: Instant::now(),
             window,
             surface,
-            adapter,
+            _adapter: adapter,
             device,
             queue,
-            shader_module,
-            pipeline_layout,
+            _shader_module: shader_module,
+            _pipeline_layout: pipeline_layout,
             render_pipeline,
             vertex_buffer,
         };

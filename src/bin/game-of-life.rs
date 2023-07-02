@@ -1,20 +1,14 @@
 #![allow(clippy::single_match)]
 #![allow(clippy::collapsible_match)]
 
-use std::time::Instant;
 
-use log::{debug, info};
+
+use log::{info};
 use rugu::State;
-use wgpu::{
-    include_wgsl, util::DeviceExt, Adapter, ColorTargetState, Device, FrontFace, PipelineLayout,
-    PrimitiveState, Queue, RenderPipeline, RequestAdapterOptions, ShaderModule, Surface,
-    TextureViewDimension, VertexBufferLayout,
-};
+
 use winit::{
-    dpi::LogicalSize,
     event::{ElementState, Event::WindowEvent, KeyboardInput, VirtualKeyCode},
-    event_loop::{self, ControlFlow, EventLoop},
-    window::Window,
+    event_loop::{ControlFlow},
 };
 
 
